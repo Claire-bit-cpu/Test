@@ -1,0 +1,134 @@
+name: Deploy to Development
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., 1.0.0-SNAPSHOT)'
+        required: false
+        type: string
+        default: ''
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  MAVEN_OPTS: '-Xmx1024m -XX:MaxMetaspaceSize=512m'
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy to Dev
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set version (if provided)
+        if: inputs.version != ''
+        run: |
+          mvn versions:set -DnewVersion=${{ inputs.version }} -DgenerateBackupPoms=false
+          echo "DEPLOY_VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Set default version
+        if: inputs.version == ''
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "DEPLOY_VERSION=${VERSION}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Build with Maven
+        run: |
+          if [ "${{ inputs.skip_tests }}" = "true" ]; then
+            mvn clean package -DskipTests -B
+          else
+            mvn clean package -B
+          fi
+        shell: bash
+
+      - name: Run unit tests
+        if: inputs.skip_tests != true
+        run: mvn test -B
+
+      - name: Set up SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEV_SSH_KEY }}
+          known_hosts: unnecessary
+          name: dev-server-key
+          config: |
+            Host dev-server
+              HostName ${{ secrets.DEV_SSH_HOST }}
+              User ${{ secrets.DEV_SSH_USER }}
+              IdentityFile ~/.ssh/dev-server-key
+              StrictHostKeyChecking no
+
+      - name: Deploy JAR to dev server
+        run: |
+          JAR_FILE=$(find target -name "*.jar" ! -name "*sources.jar" ! -name "*javadoc.jar" | head -1)
+          echo "Deploying ${JAR_FILE} version ${DEPLOY_VERSION} to dev server..."
+
+          # Upload JAR
+          scp ${JAR_FILE} \
+            dev-server:${{ secrets.DEV_DEPLOY_PATH }}/app-${DEPLOY_VERSION}.jar
+
+          # Create/update symlink and restart service
+          ssh dev-server << 'EOF'
+            set -e
+            cd ${{ secrets.DEV_DEPLOY_PATH }}
+
+            # Stop existing service
+            if [ -f app.pid ]; then
+              kill $(cat app.pid) 2>/dev/null || true
+              sleep 3
+            fi
+
+            # Update symlink to latest JAR
+            ln -sf app-${DEPLOY_VERSION}.jar app.jar
+
+            # Start service with nohup
+            nohup java -jar app.jar \
+              --spring.profiles.active=dev \
+              > app.log 2>&1 &
+            echo $! > app.pid
+            echo "Service started with PID $(cat app.pid)"
+          EOF
+
+      - name: Wait for startup
+        run: sleep 10
+
+      - name: Health check
+        run: |
+          ssh dev-server << 'EOF'
+            for i in 1 2 3 4 5; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "Health check passed (HTTP $STATUS)"
+                exit 0
+              fi
+              echo "Attempt $i: HTTP $STATUS, retrying..."
+              sleep 5
+            done
+            echo "Health check failed after 5 attempts"
+            exit 1
+          EOF
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "================================================"
+          echo "  Development Deployment"
+          echo "  Version: ${DEPLOY_VERSION}"
+          echo "  Tests Skipped: ${{ inputs.skip_tests }}"
+          echo "  Server: ${{ secrets.DEV_SSH_HOST }}"
+          echo "================================================"
