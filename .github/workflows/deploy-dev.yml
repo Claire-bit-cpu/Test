@@ -132,3 +132,5 @@ jobs:
           echo "  Tests Skipped: ${{ inputs.skip_tests }}"
           echo "  Server: ${{ secrets.DEV_SSH_HOST }}"
           echo "================================================"
+
+# trigger
