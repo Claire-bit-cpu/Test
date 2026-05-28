@@ -119,7 +119,7 @@ jobs:
             test-server:${{ secrets.TEST_DEPLOY_PATH }}/app-${DEPLOY_VERSION}.jar
 
           # Deploy and restart on test server
-          ssh test-server << 'EOF'
+          ssh test-server DEPLOY_VERSION="${DEPLOY_VERSION}" bash -s << 'EOF'
             set -e
             cd ${{ secrets.TEST_DEPLOY_PATH }}
 

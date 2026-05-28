@@ -77,11 +77,11 @@ jobs:
         if: inputs.rollback_version != ''
         run: |
           echo "ROLLING BACK to version ${{ inputs.rollback_version }}"
-          ssh prod-server << 'EOF'
+          ssh prod-server ROLLBACK_VER="${{ inputs.rollback_version }}" bash -s << 'EOF'
             set -e
             cd ${{ secrets.PROD_DEPLOY_PATH }}
 
-            ROLLBACK_JAR="app-${{ inputs.rollback_version }}.jar"
+            ROLLBACK_JAR="app-${ROLLBACK_VER}.jar"
             if [ ! -f "$ROLLBACK_JAR" ]; then
               echo "ERROR: Rollback JAR $ROLLBACK_JAR not found on server"
               exit 1
@@ -157,6 +157,7 @@ jobs:
 
       - name: Deploy JAR to production
         if: inputs.rollback_version == ''
+        id: deploy_prod
         run: |
           JAR_FILE=$(find target -name "*.jar" ! -name "*sources.jar" ! -name "*javadoc.jar" | head -1)
           echo "Deploying ${JAR_FILE} version ${DEPLOY_VERSION} to PRODUCTION..."
@@ -166,7 +167,7 @@ jobs:
             prod-server:${{ secrets.PROD_DEPLOY_PATH }}/app-${DEPLOY_VERSION}.jar
 
           # Switch to new version with zero-downtime if previous instance exists
-          ssh prod-server << 'REMOTE_SCRIPT'
+          ssh prod-server DEPLOY_VERSION="${DEPLOY_VERSION}" bash -s << 'EOF'
             set -e
             cd ${{ secrets.PROD_DEPLOY_PATH }}
 
@@ -204,10 +205,10 @@ jobs:
               echo $! > app.pid
               echo "Service started with PID $(cat app.pid)"
             fi
-          REMOTE_SCRIPT
+          EOF
 
       - name: Wait for startup
-        if: always() && steps.deploy-prod.conclusion == 'success'
+        if: always() && steps.deploy_prod.conclusion == 'success'
         run: sleep 20
 
       - name: Health check

@@ -83,7 +83,7 @@ jobs:
             dev-server:${{ secrets.DEV_DEPLOY_PATH }}/app-${DEPLOY_VERSION}.jar
 
           # Create/update symlink and restart service
-          ssh dev-server << 'EOF'
+          ssh dev-server DEPLOY_VERSION="${DEPLOY_VERSION}" bash -s << 'EOF'
             set -e
             cd ${{ secrets.DEV_DEPLOY_PATH }}
 
@@ -133,4 +133,3 @@ jobs:
           echo "  Server: ${{ secrets.DEV_SSH_HOST }}"
           echo "================================================"
 
-# trigger
