@@ -21,7 +21,7 @@ public class Project3{
 
         while (true){
 
-            System.out.println("----@ Session " + sessionNumber + " @-----");
+            System.out.println("----@# Session " + sessionNumber + " #@-----");
             System.out.println();
 
             /*
