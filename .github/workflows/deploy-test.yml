@@ -1,0 +1,16 @@
+name: Deploy to Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: test
+
+      - name: Deploy
+        run: echo "部署到测试环境完成"

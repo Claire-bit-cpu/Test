@@ -1,0 +1,16 @@
+name: Deploy to Dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Deploy
+        run: echo "部署到开发环境完成"
