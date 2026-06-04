@@ -1,0 +1,16 @@
+name: Deploy to Prod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Deploy
+        run: echo "部署到生产环境完成"
