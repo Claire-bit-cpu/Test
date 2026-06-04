@@ -16,7 +16,7 @@ public class Project3{
         int sessionNumber = 1;
         User currentUser = null;
 
-        System.out.println("Welcome to Coder or Gamer – Advanced Edition!");
+        System.out.println("Welcome to Coder or Gamer – Advanced Edition!this just a preparation");
         System.out.println();
 
         while (true){
