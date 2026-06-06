@@ -1,0 +1,50 @@
+MC
+How do you feel about debugging?
+Fix it,40,0
+Ignore it,0,30
+Hate it,-10,10
+
+MC
+Which tool do you prefer?
+VS Code,30,0
+Notepad,0,20
+Eclipse,-5,5
+
+MC
+How do you solve errors?
+Google it,20,5
+Guess,0,25
+Ask friend,-5,10
+
+TF
+Do you enjoy solving logic problems?
+30,10
+10,30
+
+TF
+Do you like playing video games?
+10,30
+30,10
+
+TF
+Do you prefer reading documentation?
+25,5
+5,25
+
+NUM
+How many hours per week do you code?
+0,1,-10,0
+2,10,10,-5
+11,80,40,-20
+
+NUM
+What is your age?
+0,17,-5,10
+18,24,10,-5
+25,100,20,0
+
+NUM
+How many projects have you built?
+0,1,-10,5
+2,5,15,-10
+6,100,30,0

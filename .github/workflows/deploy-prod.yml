@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -12,5 +12,47 @@ jobs:
         with:
           ref: main
 
-      - name: Deploy
-        run: echo "部署到生产环境完成"
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Compile Java
+        run: |
+          mkdir -p out
+          javac -d out src/*.java
+
+      - name: Package JAR
+        run: |
+          cp src/question.txt out/
+          cd out
+          jar cfe Project3.jar Project3 *.class question.txt
+
+      - name: Upload JAR via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          port: ${{ secrets.PROD_SERVER_PORT }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          password: ${{ secrets.PROD_SERVER_PASSWORD }}
+          source: "out/Project3.jar"
+          target: "/opt/project3/lib/"
+          strip_components: 1
+
+      - name: Restart app via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          port: ${{ secrets.PROD_SERVER_PORT }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          password: ${{ secrets.PROD_SERVER_PASSWORD }}
+          script: |
+            # 生产环境先备份旧 JAR
+            cp /opt/project3/lib/Project3.jar /opt/project3/lib/Project3.jar.bak 2>/dev/null || true
+            # 停止旧进程
+            pkill -f "Project3.jar" || true
+            sleep 3
+            # 启动新进程
+            nohup java -jar /opt/project3/lib/Project3.jar > /opt/project3/logs/app.log 2>&1 &
+            echo "生产环境部署完成"
