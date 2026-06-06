@@ -20,7 +20,7 @@ on:
           - aws
           - tencent
       callback_url:
-        description: '回调 URL（部署完成后调用，用于发送飞书通知）'
+        description: 'https://scanner-return-evident.ngrok-free.dev/github/callback'
         required: false
         default: ''
 
