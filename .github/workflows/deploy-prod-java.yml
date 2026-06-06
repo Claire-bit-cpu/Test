@@ -216,7 +216,7 @@ jobs:
                   "template": "green"
                 },
                 "elements": [
-                  {"tag": "div", "text": {"tag": "lark_md", "content": "**环境**：dev (Java)\n**部署目标**：'"$TARGET"'\n**仓库**：${{ github.repository }}\n**分支**：${{ github.event.inputs.ref || \"develop\" }}\n**JAR**：${{ env.JAR_NAME }}\n**JDK**：${{ env.JAVA_VERSION }}\n**操作者**：${{ github.actor }}\n**时间**：'"$(date -u +'%Y-%m-%d %H:%M:%S UTC')"'\n[查看详情](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}},
+                  {"tag": "div", "text": {"tag": "lark_md", "content": "**环境**：dev (Java)\n**部署目标**：'"$TARGET"'\n**仓库**：${{ github.repository }}\n**分支**：${{ github.event.inputs.ref || 'develop' }}\n**JAR**：${{ env.JAR_NAME }}\n**JDK**：${{ env.JAVA_VERSION }}\n**操作者**：${{ github.actor }}\n**时间**：'"$(date -u +'%Y-%m-%d %H:%M:%S UTC')"'\n[查看详情](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}},
                   {"tag": "action", "actions": [{"tag": "button", "text": {"tag": "plain_text", "content": "查看 GitHub Actions"}, "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}", "type": "primary"}]}
                 ]
               }
@@ -238,7 +238,7 @@ jobs:
                   "template": "red"
                 },
                 "elements": [
-                  {"tag": "div", "text": {"tag": "lark_md", "content": "**环境**：dev (Java)\n**部署目标**：'"$TARGET"'\n**仓库**：${{ github.repository }}\n**分支**：${{ github.event.inputs.ref || \"develop\" }}\n**操作者**：${{ github.actor }}\n**时间**：'"$(date -u +'%Y-%m-%d %H:%M:%S UTC')"'\n[查看详情](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}},
+                  {"tag": "div", "text": {"tag": "lark_md", "content": "**环境**：dev (Java)\n**部署目标**：'"$TARGET"'\n**仓库**：${{ github.repository }}\n**分支**：${{ github.event.inputs.ref || 'develop' }}\n**操作者**：${{ github.actor }}\n**时间**：'"$(date -u +'%Y-%m-%d %H:%M:%S UTC')"'\n[查看详情](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"}},
                   {"tag": "action", "actions": [{"tag": "button", "text": {"tag": "plain_text", "content": "查看 GitHub Actions"}, "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}", "type": "danger"}]}
                 ]
               }
