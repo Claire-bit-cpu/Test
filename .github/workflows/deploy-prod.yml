@@ -1,58 +1,116 @@
-name: Deploy to Prod
+name: Deploy to Production Environment
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: '分支/Tag/SHA（默认 main）'
+      target:
+        description: '部署目标（default/server1/server2）'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - server1
+          - server2
+      confirm:
+        description: '输入 "DEPLOY-PROD" 确认生产部署'
+        required: true
+
+env:
+  DEPLOY_ENV: prod
 
 jobs:
-  build-and-deploy:
+  deploy:
+    name: Deploy to Production
     runs-on: ubuntu-latest
+    environment: production
+
     steps:
-      - name: Checkout code
+      - name: ✅ 确认部署
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY-PROD" ]; then
+            echo "❌ 确认词不正确，取消部署"
+            exit 1
+          fi
+          echo "✅ 生产部署确认通过"
+
+      - name: 📥 Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.inputs.ref || 'main' }}
 
-      - name: Set up JDK
+      - name: ☕ Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: maven
 
-      - name: Compile Java
+      - name: 🔨 Build with Maven
+        run: mvn package -DskipTests
+
+      - name: 🚀 Deploy to Target
         run: |
-          mkdir -p out
-          javac -d out src/*.java
+          TARGET="${{ github.event.inputs.target || 'default' }}"
+          echo "TARGET=$TARGET" >> $GITHUB_ENV
 
-      - name: Package JAR
-        run: |
-          cp src/question.txt out/
-          cd out
-          jar cfe Project3.jar Project3 *.class question.txt
+          case "$TARGET" in
+            default)
+              SSH_HOST="${{ secrets.PROD_SERVER_HOST }}"
+              SSH_PORT="${{ secrets.PROD_SERVER_PORT || '22' }}"
+              SSH_USER="${{ secrets.PROD_SERVER_USER }}"
+              SSH_PASS="${{ secrets.PROD_SERVER_PASSWORD }}"
+              ;;
+            server1)
+              SSH_HOST="${{ secrets.PROD_SERVER1_HOST }}"
+              SSH_PORT="${{ secrets.PROD_SERVER1_PORT || '22' }}"
+              SSH_USER="${{ secrets.PROD_SERVER1_USER }}"
+              SSH_PASS="${{ secrets.PROD_SERVER1_PASSWORD }}"
+              ;;
+            server2)
+              SSH_HOST="${{ secrets.PROD_SERVER2_HOST }}"
+              SSH_PORT="${{ secrets.PROD_SERVER2_PORT || '22' }}"
+              SSH_USER="${{ secrets.PROD_SERVER2_USER }}"
+              SSH_PASS="${{ secrets.PROD_SERVER2_PASSWORD }}"
+              ;;
+          esac
 
-      - name: Upload JAR via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.PROD_SERVER_HOST }}
-          port: ${{ secrets.PROD_SERVER_PORT }}
-          username: ${{ secrets.PROD_SERVER_USER }}
-          password: ${{ secrets.PROD_SERVER_PASSWORD }}
-          source: "out/Project3.jar"
-          target: "/opt/project3/lib/"
-          strip_components: 1
-
-      - name: Restart app via SSH
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.PROD_SERVER_HOST }}
-          port: ${{ secrets.PROD_SERVER_PORT }}
-          username: ${{ secrets.PROD_SERVER_USER }}
-          password: ${{ secrets.PROD_SERVER_PASSWORD }}
-          script: |
-            # 生产环境先备份旧 JAR
-            cp /opt/project3/lib/Project3.jar /opt/project3/lib/Project3.jar.bak 2>/dev/null || true
+          echo "🚀 部署到生产环境 - 目标：$TARGET"
+          
+          if [ -n "$SSH_HOST" ]; then
+            echo "SSH_HOST=$SSH_HOST" >> $GITHUB_ENV
+            echo "SSH_PORT=$SSH_PORT" >> $GITHUB_ENV
+            echo "SSH_USER=$SSH_USER" >> $GITHUB_ENV
+            echo "SSH_PASS=$SSH_PASS" >> $GITHUB_ENV
+            
+            # 备份旧 JAR
+            sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+              "cp /opt/project3/lib/Project3.jar /opt/project3/lib/Project3.jar.bak 2>/dev/null || true"
             # 停止旧进程
-            pkill -f "Project3.jar" || true
+            sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+              "pkill -f 'Project3.jar' || true"
             sleep 3
+            # 上传新 JAR
+            sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no -P "$SSH_PORT" \
+              "target/test-1.0-SNAPSHOT.jar" "$SSH_USER@$SSH_HOST:/opt/project3/lib/Project3.jar"
             # 启动新进程
-            nohup java -jar /opt/project3/lib/Project3.jar > /opt/project3/logs/app.log 2>&1 &
-            echo "生产环境部署完成"
+            sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+              "nohup java -jar /opt/project3/lib/Project3.jar > /opt/project3/logs/app.log 2>&1 &"
+            echo "✅ 生产环境部署完成"
+          else
+            echo "⚠️ 未配置 $TARGET 服务器参数，跳过部署"
+          fi
+
+      - name: 🔍 Health Check
+        run: |
+          if [ -n "$SSH_HOST" ]; then
+            echo "🔍 执行健康检查..."
+            sleep 5
+            # 检查进程是否存在
+            sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+              "pgrep -f 'Project3.jar' && echo '✅ 健康检查通过' || echo '❌ 健康检查失败'"
+          else
+            echo "⚠️ 未配置服务器，跳过健康检查"
+          fi
